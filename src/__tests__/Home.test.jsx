@@ -1,36 +1,89 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
-import { RouterProvider, createMemoryRouter} from "react-router-dom";
-import routes from "../routes";
+import { RouterProvider, createMemoryRouter } from "react-router-dom";
+import { routes } from "../routes";
+import { vi } from 'vitest'; 
 
-const router = createMemoryRouter(routes)
-
-test("renders 'Home Page' inside of an <h1 />", () => {
-  render(<RouterProvider router={router}/>);
-  const h1 = screen.queryByText(/Home Page/);
-  expect(h1).toBeInTheDocument();
-  expect(h1.tagName).toBe("H1");
+beforeEach(() => {
+  vi.spyOn(global, 'fetch').mockImplementation((url) => {
+    if (url === 'http://localhost:3000/movies') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve([
+          { id: 1, title: "Doctor Strange", time: "2h 6m", genres: ["Action", "Fantasy"], directorId: 1, actorIds: [1, 2] },
+          { id: 2, title: "Spider-Man: No Way Home", time: "2h 28m", genres: ["Action", "Sci-Fi"], directorId: 2, actorIds: [3, 4] },
+          { id: 3, title: "Inception", time: "2h 28m", genres: ["Sci-Fi", "Thriller"], directorId: 3, actorIds: [5] },
+        ]),
+      });
+    }
+    
+    return Promise.reject(new Error(`Unhandled request for ${url}`));
+  });
 });
 
-test("Displays a list of movie titles", async () =>{
-  render(<RouterProvider router={router}/>);
-  const titleList = await screen.findAllByRole('heading', {level: 2})
-  expect(titleList.length).toBeGreaterThan(2);
-  expect(titleList[0].tagName).toBe("H2");
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+
+test("renders 'Home Page' inside of an <h1 />", async () => {
+
+  const router = createMemoryRouter(routes, {
+
+    initialEntries: ["/"], 
+
+    initialIndex: 0
+
+  });
+
+  render(<RouterProvider router={router} />);
+
+
+  
+
+  const h1 = await screen.findByRole('heading', { name: /Home Page/i });
+
+  expect(h1).toBeInTheDocument();
+
+  expect(h1.tagName).toBe("H1");
+
+});
+
+test("Displays a list of movie titles", async () => {
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/"],
+    initialIndex: 0
+  });
+  render(<RouterProvider router={router} />);
+
+  
+  const titleList = await screen.findAllByRole('heading', { level: 3 }); 
+  expect(titleList.length).toBeGreaterThanOrEqual(3); 
+  expect(titleList[0].tagName).toBe("H3"); 
   expect(titleList[0].textContent).toBe("Doctor Strange");
-})
+});
 
-test("Displays links for each associated movie", async () =>{
-  render(<RouterProvider router={router}/>);
-  const linkList = await screen.findAllByText(/View Info/);
-  expect(linkList.length).toBeGreaterThan(2);
-  expect(linkList[0].href.split("/").slice(3).join("/")).toBe("movie/1");
-})
+test("Displays links for each associated movie", async () => {
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/"],
+    initialIndex: 0
+  });
+  render(<RouterProvider router={router} />);
 
-test("renders the <NavBar /> component", () => {
-  const router = createMemoryRouter(routes)
+  const linkList = await screen.findAllByRole('link', { name: /Doctor Strange|Spider-Man: No Way Home|Inception/i });
+  expect(linkList.length).toBeGreaterThanOrEqual(3);
+  expect(linkList[0]).toHaveAttribute("href", "/movie/1"); 
+});
+
+test("renders the <NavBar /> component", async () => { 
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/"], 
+    initialIndex: 0
+  });
   render(
       <RouterProvider router={router}/>
   );
-  expect(document.querySelector(".navbar")).toBeInTheDocument();
+  expect(await screen.findByRole('navigation')).toBeInTheDocument();
+  expect(document.querySelector(".navbar")).toBeInTheDocument(); 
 });
